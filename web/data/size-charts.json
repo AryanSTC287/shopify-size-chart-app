@@ -1,0 +1,61 @@
+[
+  {
+    "id": "b2b6b6ed-cd65-47b0-862f-9a2d2f2f68bf",
+    "shop": "checkout-function-test2.myshopify.com",
+    "title": "Shirt",
+    "columns": [
+      {
+        "id": "size",
+        "name": "Size"
+      },
+      {
+        "id": "chest",
+        "name": "Chest (in)"
+      },
+      {
+        "id": "waist",
+        "name": "Waist (in)"
+      },
+      {
+        "id": "length",
+        "name": "Length (in)"
+      }
+    ],
+    "rows": [
+      {
+        "size": "S",
+        "chest": "36",
+        "waist": "30",
+        "length": "27"
+      },
+      {
+        "size": "M",
+        "chest": "38",
+        "waist": "32",
+        "length": "28"
+      },
+      {
+        "size": "L",
+        "chest": "40",
+        "waist": "34",
+        "length": "29"
+      },
+      {
+        "size": "XL",
+        "chest": "42",
+        "waist": "36",
+        "length": "30"
+      }
+    ],
+    "products": [
+      {
+        "id": "gid://shopify/Product/9414312788073",
+        "title": "Full Sleeve Shirts For Men",
+        "handle": "blue-t-shirt",
+        "image": "https://cdn.shopify.com/s/files/1/0660/2021/2841/files/formal-wear-Men.jpg?v=1786528224"
+      }
+    ],
+    "createdAt": "2026-08-12T10:12:36.848Z",
+    "updatedAt": "2026-08-12T10:12:36.848Z"
+  }
+]

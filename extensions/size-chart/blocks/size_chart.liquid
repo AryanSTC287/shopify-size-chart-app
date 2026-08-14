@@ -1,0 +1,177 @@
+{% assign size_chart = product.metafields.custom.size_chart.value %}
+
+{% if size_chart %}
+  <div class="size-chart-block">
+    <button
+      type="button"
+      class="size-chart-button"
+      onclick="this.nextElementSibling.classList.add('size-chart-modal-open')"
+    >
+      Size Chart
+    </button>
+
+    <div class="size-chart-modal">
+      <div
+        class="size-chart-overlay"
+        onclick="this.parentElement.classList.remove('size-chart-modal-open')"
+      ></div>
+
+      <div class="size-chart-content">
+        <button
+          type="button"
+          class="size-chart-close"
+          onclick="this.parentElement.parentElement.classList.remove('size-chart-modal-open')"
+        >
+          ×
+        </button>
+
+        <h2 class="size-chart-title">
+          {{ size_chart.title }}
+        </h2>
+
+        <div class="size-chart-table-wrapper">
+          <table class="size-chart-table">
+            <thead>
+              <tr>
+                {% for column in size_chart.columns %}
+                  <th>
+                    {{ column.name }}
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for row in size_chart.rows %}
+                <tr>
+                  {% for column in size_chart.columns %}
+                    <td>
+                      {{ row[column.id] }}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .size-chart-block {
+      margin: 20px 0;
+    }
+
+    .size-chart-button {
+      padding: 12px 20px;
+      border: 1px solid #222;
+      background: #fff;
+      color: #222;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .size-chart-button:hover {
+      background: #222;
+      color: #fff;
+    }
+
+    .size-chart-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+    }
+
+    .size-chart-modal-open {
+      display: block;
+    }
+
+    .size-chart-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+    }
+
+    .size-chart-content {
+      position: relative;
+      z-index: 2;
+      width: 90%;
+      max-width: 800px;
+      max-height: 80vh;
+      overflow: auto;
+      margin: 8vh auto;
+      padding: 30px;
+      background: #fff;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    .size-chart-close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      border: 0;
+      background: transparent;
+      font-size: 30px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .size-chart-title {
+      margin: 0 40px 20px 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .size-chart-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .size-chart-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .size-chart-table th,
+    .size-chart-table td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+
+    .size-chart-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+
+    @media screen and (max-width: 600px) {
+      .size-chart-content {
+        width: 95%;
+        margin: 5vh auto;
+        padding: 20px;
+      }
+
+      .size-chart-title {
+        font-size: 20px;
+      }
+
+      .size-chart-table th,
+      .size-chart-table td {
+        padding: 8px;
+        font-size: 14px;
+      }
+    }
+  </style>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Size Chart",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
