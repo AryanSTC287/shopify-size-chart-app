@@ -27,8 +27,7 @@ const PORT = parseInt(
 );
 
 const STATIC_PATH =
-  process.env.NODE_ENV ===
-  "production"
+  process.env.NODE_ENV === "production"
     ? `${process.cwd()}/frontend/dist`
     : `${process.cwd()}/frontend/`;
 
@@ -48,8 +47,7 @@ app.get(
 app.post(
   shopify.config.webhooks.path,
   shopify.processWebhooks({
-    webhookHandlers:
-      PrivacyWebhookHandlers,
+    webhookHandlers: PrivacyWebhookHandlers,
   })
 );
 
@@ -58,6 +56,10 @@ app.use(
 );
 
 app.use(express.json());
+
+/* =========================================================
+   GET ALL SHOPIFY PRODUCTS
+   ========================================================= */
 
 app.get(
   "/api/products",
@@ -69,34 +71,163 @@ app.get(
             res.locals.shopify.session,
         });
 
-      const response =
-        await client.request(`
-          query GetProducts {
-            products(
-              first: 100
-              sortKey: TITLE
-            ) {
-              nodes {
-                id
-                title
-                handle
-                status
+      const products = [];
 
-                featuredImage {
-                  url
-                  altText
+      let cursor = null;
+      let hasNextPage = true;
+
+      while (hasNextPage) {
+        const response =
+          await client.request(
+            `#graphql
+            query GetProducts($cursor: String) {
+              products(
+                first: 250
+                after: $cursor
+                sortKey: TITLE
+              ) {
+                nodes {
+                  id
+                  title
+                  handle
+                  status
+
+                  featuredImage {
+                    url
+                    altText
+                  }
+
+                  priceRangeV2 {
+                    minVariantPrice {
+                      amount
+                      currencyCode
+                    }
+
+                    maxVariantPrice {
+                      amount
+                      currencyCode
+                    }
+                  }
+
+                  variants(first: 250) {
+                    nodes {
+                      id
+                      title
+                      sku
+                      price
+
+                      selectedOptions {
+                        name
+                        value
+                      }
+                    }
+                  }
+                }
+
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
-          }
-        `);
+            `,
+            {
+              variables: {
+                cursor,
+              },
+            }
+          );
+
+        const productConnection =
+          response?.data?.products;
+
+        const pageProducts =
+          productConnection?.nodes || [];
+
+        products.push(...pageProducts);
+
+        hasNextPage =
+          Boolean(
+            productConnection?.pageInfo
+              ?.hasNextPage
+          );
+
+        cursor =
+          productConnection?.pageInfo
+            ?.endCursor || null;
+      }
+
+      const normalizedProducts =
+        products.map((product) => {
+          const variants =
+            product?.variants?.nodes || [];
+
+          const minPrice =
+            product?.priceRangeV2
+              ?.minVariantPrice;
+
+          const maxPrice =
+            product?.priceRangeV2
+              ?.maxVariantPrice;
+
+          return {
+            id: product.id,
+
+            title:
+              product.title || "",
+
+            handle:
+              product.handle || "",
+
+            status:
+              product.status || "",
+
+            image:
+              product?.featuredImage?.url ||
+              null,
+
+            imageAlt:
+              product?.featuredImage?.altText ||
+              product.title ||
+              "",
+
+            price:
+              minPrice?.amount ?? null,
+
+            maxPrice:
+              maxPrice?.amount ?? null,
+
+            currencyCode:
+              minPrice?.currencyCode || "INR",
+
+            variants:
+              variants.map((variant) => ({
+                id: variant.id,
+
+                title:
+                  variant.title || "",
+
+                sku:
+                  variant.sku || "",
+
+                price:
+                  variant.price ?? null,
+
+                selectedOptions:
+                  variant.selectedOptions || [],
+              })),
+          };
+        });
 
       return res.status(200).json({
         success: true,
+
         data: {
           products:
-            response?.data?.products
-              ?.nodes || [],
+            normalizedProducts,
+
+          count:
+            normalizedProducts.length,
         },
       });
     } catch (error) {
@@ -107,6 +238,7 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to fetch Shopify products.",
@@ -114,6 +246,10 @@ app.get(
     }
   }
 );
+
+/* =========================================================
+   PRODUCT SIZE CHART STATUS
+   ========================================================= */
 
 app.post(
   "/api/products/size-chart-status",
@@ -140,6 +276,7 @@ app.post(
 
       return res.status(200).json({
         success: true,
+
         data: {
           products,
         },
@@ -152,6 +289,7 @@ app.post(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to check product status.",
@@ -159,6 +297,10 @@ app.post(
     }
   }
 );
+
+/* =========================================================
+   GET PRODUCT SIZE CHART
+   ========================================================= */
 
 app.get(
   "/api/products/:productId/size-chart",
@@ -179,6 +321,7 @@ app.get(
       if (!result) {
         return res.status(404).json({
           success: false,
+
           error:
             "Product not found.",
         });
@@ -187,6 +330,7 @@ app.get(
       if (!result.sizeChart) {
         return res.status(404).json({
           success: false,
+
           error:
             "No Size Chart is assigned to this product.",
         });
@@ -194,6 +338,7 @@ app.get(
 
       return res.status(200).json({
         success: true,
+
         data: result,
       });
     } catch (error) {
@@ -204,6 +349,7 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to fetch Size Chart.",
@@ -211,6 +357,10 @@ app.get(
     }
   }
 );
+
+/* =========================================================
+   PRODUCT COUNT
+   ========================================================= */
 
 app.get(
   "/api/products/count",
@@ -233,6 +383,7 @@ app.get(
 
       return res.status(200).json({
         success: true,
+
         count:
           countData?.data
             ?.productsCount
@@ -246,12 +397,17 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           "Failed to fetch product count.",
       });
     }
   }
 );
+
+/* =========================================================
+   CREATE PRODUCT
+   ========================================================= */
 
 app.post(
   "/api/products",
@@ -273,6 +429,7 @@ app.post(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to create product.",
@@ -280,6 +437,10 @@ app.post(
     }
   }
 );
+
+/* =========================================================
+   CREATE SIZE CHART
+   ========================================================= */
 
 app.post(
   "/api/size-charts",
@@ -301,19 +462,19 @@ app.post(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "Size chart title is required.",
         });
       }
 
       if (
-        !Array.isArray(
-          columns
-        ) ||
+        !Array.isArray(columns) ||
         columns.length === 0
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "At least one column is required.",
         });
@@ -325,19 +486,19 @@ app.post(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "At least one row is required.",
         });
       }
 
       if (
-        !Array.isArray(
-          products
-        ) ||
+        !Array.isArray(products) ||
         products.length === 0
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "Please select at least one product.",
         });
@@ -377,15 +538,17 @@ app.post(
         );
 
       if (
-        newProducts.length ===
-        0
+        newProducts.length === 0
       ) {
         return res.status(409).json({
           success: false,
+
           code:
             "PRODUCTS_ALREADY_ASSIGNED",
+
           error:
             "All selected products already have a Size Chart assigned.",
+
           data: {
             products:
               existingProducts,
@@ -399,6 +562,7 @@ app.post(
             id:
               column?.id ||
               `column-${index + 1}`,
+
             name: String(
               column?.name || ""
             ).trim(),
@@ -413,6 +577,7 @@ app.post(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "Every column must have a name.",
         });
@@ -459,10 +624,13 @@ app.post(
           )
           .map((product) => ({
             id: product.id,
+
             title:
               product.title || "",
+
             handle:
               product.handle || "",
+
             image:
               product.image ||
               null,
@@ -470,12 +638,16 @@ app.post(
 
       const sizeChart = {
         id: chartId,
+
         title:
           title.trim(),
+
         columns:
           normalizedColumns,
+
         rows:
           normalizedRows,
+
         products:
           normalizedProducts,
       };
@@ -488,13 +660,15 @@ app.post(
 
       return res.status(201).json({
         success: true,
+
         message:
-          existingProducts.length >
-          0
+          existingProducts.length > 0
             ? "Size chart saved for the new products. Existing product assignments were left unchanged."
             : "Size chart saved successfully.",
+
         data: {
           sizeChart,
+
           existingProducts,
         },
       });
@@ -506,6 +680,7 @@ app.post(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to save size chart.",
@@ -513,6 +688,10 @@ app.post(
     }
   }
 );
+
+/* =========================================================
+   ASSIGNED SIZE CHART PRODUCTS
+   ========================================================= */
 
 app.get(
   "/api/size-charts/assigned-products",
@@ -531,6 +710,7 @@ app.get(
 
       return res.status(200).json({
         success: true,
+
         data: {
           assignedProducts,
         },
@@ -543,6 +723,7 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to fetch assigned products.",
@@ -550,6 +731,10 @@ app.get(
     }
   }
 );
+
+/* =========================================================
+   SIZE CHART LIST
+   ========================================================= */
 
 app.get(
   "/api/size-charts",
@@ -568,6 +753,7 @@ app.get(
 
       return res.status(200).json({
         success: true,
+
         data: {
           assignedProducts,
         },
@@ -580,6 +766,7 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to fetch Size Charts.",
@@ -587,6 +774,10 @@ app.get(
     }
   }
 );
+
+/* =========================================================
+   GET SIZE CHART BY ID
+   ========================================================= */
 
 app.get(
   "/api/size-charts/:id",
@@ -613,6 +804,7 @@ app.get(
       if (!match) {
         return res.status(404).json({
           success: false,
+
           error:
             "Size chart not found.",
         });
@@ -620,6 +812,7 @@ app.get(
 
       return res.status(200).json({
         success: true,
+
         data: {
           sizeChart:
             match.sizeChart,
@@ -633,6 +826,7 @@ app.get(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to fetch Size Chart.",
@@ -640,6 +834,10 @@ app.get(
     }
   }
 );
+
+/* =========================================================
+   UPDATE SIZE CHART
+   ========================================================= */
 
 app.put(
   "/api/size-charts/:id",
@@ -660,19 +858,19 @@ app.put(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "Size chart title is required.",
         });
       }
 
       if (
-        !Array.isArray(
-          columns
-        ) ||
+        !Array.isArray(columns) ||
         columns.length === 0
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "At least one column is required.",
         });
@@ -684,6 +882,7 @@ app.put(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "At least one row is required.",
         });
@@ -707,11 +906,11 @@ app.put(
         );
 
       if (
-        matching.length ===
-        0
+        matching.length === 0
       ) {
         return res.status(404).json({
           success: false,
+
           error:
             "Size chart not found.",
         });
@@ -723,6 +922,7 @@ app.put(
             id:
               column?.id ||
               `column-${index + 1}`,
+
             name: String(
               column?.name || ""
             ).trim(),
@@ -737,6 +937,7 @@ app.put(
       ) {
         return res.status(400).json({
           success: false,
+
           error:
             "Every column must have a name.",
         });
@@ -767,11 +968,17 @@ app.put(
         );
 
       const updatedChart = {
-        id: req.params.id,
-        title: title.trim(),
+        id:
+          req.params.id,
+
+        title:
+          title.trim(),
+
         columns:
           normalizedColumns,
-        rows: normalizedRows,
+
+        rows:
+          normalizedRows,
       };
 
       const productIds =
@@ -788,8 +995,10 @@ app.put(
 
       return res.status(200).json({
         success: true,
+
         message:
           "Size chart updated successfully.",
+
         data: {
           sizeChart:
             updatedChart,
@@ -803,6 +1012,7 @@ app.put(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to update Size Chart.",
@@ -810,6 +1020,8 @@ app.put(
     }
   }
 );
+
+/* =Delete shopify size chart from product */
 
 app.delete(
   "/api/size-charts/product/:productId",
@@ -832,6 +1044,7 @@ app.delete(
       ) {
         return res.status(404).json({
           success: false,
+
           error:
             "No Size Chart is assigned to this product.",
         });
@@ -844,6 +1057,7 @@ app.delete(
 
       return res.status(200).json({
         success: true,
+
         message:
           "Size chart removed from product.",
       });
@@ -855,6 +1069,7 @@ app.delete(
 
       return res.status(500).json({
         success: false,
+
         error:
           error?.message ||
           "Failed to remove Size Chart.",
@@ -862,6 +1077,8 @@ app.delete(
     }
   }
 );
+
+/* Frontend */
 
 app.use(
   shopify.cspHeaders()
